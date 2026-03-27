@@ -1,0 +1,54 @@
+version: "3.9"
+
+# Production compose — used on Web01 and Web02
+# Differences from dev:
+#   - No bind-mount volumes (data lives inside container)
+#   - Named volumes for persistence across container restarts
+#   - Health checks on both services
+#   - Resource limits
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis_data:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - backend/.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - model_data:/app/models
+      - load_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 2G
+
+volumes:
+  redis_data:
+  model_data:
+  load_data:

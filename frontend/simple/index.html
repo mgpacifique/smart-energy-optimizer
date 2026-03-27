@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gatsibo Energy — Status Dashboard</title>
+  <link rel="stylesheet" href="simple-style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <div>
+          <span class="logo-title">Gatsibo Smart Energy</span>
+          <span class="logo-sub">Real-time Status & Forecast</span>
+        </div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <a href="/advanced/" class="link-small">Technical View</a>
+      <div id="weather-widget" class="weather-chip">
+        <span id="weather-temp">--°C</span>
+        <span id="weather-label">Gatsibo</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Status bar ──────────────────────────────────────────────────────── -->
+  <div id="status-bar" class="status-bar status-ok">
+    <span id="status-icon">✓</span>
+    <div class="status-content">
+      <div id="status-title" class="status-title">Energy Supply Safe</div>
+      <span id="status-text" class="status-subtitle">All forecast values are within normal range</span>
+    </div>
+  </div>
+
+  <!-- ── Key numbers ─────────────────────────────────────────────────────── -->
+  <section class="key-metrics">
+    <div class="metric-large">
+      <div class="metric-icon">📊</div>
+      <div class="metric-info">
+        <div class="metric-label">Peak Load (Next 24h)</div>
+        <div class="metric-value" id="metric-peak">-- MW</div>
+      </div>
+    </div>
+    <div class="metric-large">
+      <div class="metric-icon">⚠</div>
+      <div class="metric-info">
+        <div class="metric-label">Hours at Risk</div>
+        <div class="metric-value" id="metric-alerts">0</div>
+      </div>
+    </div>
+    <div class="metric-large">
+      <div class="metric-icon">🔌</div>
+      <div class="metric-info">
+        <div class="metric-label">Safe Threshold</div>
+        <div class="metric-value" id="metric-threshold">20 MW</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Simple status cards ─────────────────────────────────────────────── -->
+  <section class="status-cards">
+    <div id="alert-card" class="status-card status-card-warning" style="display:none">
+      <div class="card-icon">⚠️</div>
+      <div class="card-text">
+        <div class="card-title">⏰ Peak Load Alert</div>
+        <div class="card-subtitle" id="alert-time">At approximately --:--</div>
+      </div>
+    </div>
+    <div class="status-card status-card-info">
+      <div class="card-icon">✓</div>
+      <div class="card-text">
+        <div class="card-title">Current Status</div>
+        <div class="card-subtitle" id="current-time">Loading...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Big chart ───────────────────────────────────────────────────────── -->
+  <section class="card chart-section">
+    <h2 class="section-title">📈 Electricity Demand Forecast</h2>
+    <div class="chart-wrapper">
+      <canvas id="simple-chart"></canvas>
+    </div>
+    <div class="chart-note">Red line shows safe threshold. If blue line goes above red line = problem!</div>
+  </section>
+
+  <!--── Action buttons ──────────────────────────────────────────────────── -->
+  <section class="action-section">
+    <button id="refresh-btn" class="action-btn action-btn-primary" onclick="loadData()">
+      🔄 Refresh Now
+    </button>
+    <button id="details-btn" class="action-btn action-btn-secondary" onclick="loadDetails()">
+      📋 Show Hourly Details
+    </button>
+  </section>
+
+  <!-- ── Hourly details (collapsible) ─────────────────────────────────────── -->
+  <section id="details-section" class="details-section" style="display:none">
+    <h2 class="section-title">⏰ Hourly Forecast Details</h2>
+    <div class="table-wrapper">
+      <table id="simple-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Demand (MW)</th>
+            <th>Safe?</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr><td colspan="3" class="loading">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Info section ───────────────────────────────────────────────────── -->
+  <section class="info-section">
+    <div class="info-card">
+      <h3>🤔 What does this mean?</h3>
+      <p><strong>Green ✓ (Safe):</strong> The power grid has enough electricity. No action needed.</p>
+      <p><strong>Red ⚠ (Alert):</strong> Demand is too high. We might need to reduce load in some areas.</p>
+    </div>
+    <div class="info-card">
+      <h3>📌 System Info</h3>
+      <ul>
+        <li>Data source: <span id="info-source">--</span></li>
+        <li>Training records: <span id="info-rows">--</span></li>
+        <li>Model: LSTM (Neural Network)</li>
+        <li>Last updated: <span id="info-time">now</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── Toast ───────────────────────────────────────────────────────────── -->
+  <div id="toast" class="toast hidden"></div>
+
+  <footer class="footer-simple">
+    <p>Smart Energy Optimizer for Gatsibo District, Eastern Province, Rwanda</p>
+    <p>Using real-time weather data and AI predictions | <a href="/advanced/">Advanced Dashboard</a></p>
+  </footer>
+
+  <script src="simple-app.js"></script>
+</body>
+</html>

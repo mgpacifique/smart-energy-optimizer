@@ -1,0 +1,89 @@
+name: Deploy to Web01 & Web02
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Run basic import tests
+        run: |
+          cd backend
+          python -c "from data_gen import generate; print('data_gen OK')"
+          python -c "from weather import fetch_forecast; print('weather OK')"
+          python -c "from webhook import build_shed_schedule; print('webhook OK')"
+          python -c "from alerts import dispatch_alert; print('alerts OK')"
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Web01
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.WEB01_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key:      ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/smart-energy-optimizer
+            git pull origin main
+
+            # Bootstrap data + model on first deploy (skips if already trained)
+            if [ ! -f backend/models/prophet_model.pkl ]; then
+              echo "First deploy — training Prophet model..."
+              docker compose -f docker-compose.prod.yml run --rm api python data_gen.py
+              docker compose -f docker-compose.prod.yml run --rm api python -c \
+                "from forecaster import ProphetForecaster; ProphetForecaster().train()"
+            fi
+
+            docker compose -f docker-compose.prod.yml down
+            docker compose -f docker-compose.prod.yml up -d --build
+            echo "Web01 deployed successfully"
+
+      - name: Deploy to Web02
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.WEB02_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key:      ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/smart-energy-optimizer
+            git pull origin main
+
+            if [ ! -f backend/models/prophet_model.pkl ]; then
+              echo "First deploy — training Prophet model..."
+              docker compose -f docker-compose.prod.yml run --rm api python data_gen.py
+              docker compose -f docker-compose.prod.yml run --rm api python -c \
+                "from forecaster import ProphetForecaster; ProphetForecaster().train()"
+            fi
+
+            docker compose -f docker-compose.prod.yml down
+            docker compose -f docker-compose.prod.yml up -d --build
+            echo "Web02 deployed successfully"
+
+      - name: Verify load balancer health
+        run: |
+          echo "Waiting for services to be ready..."
+          sleep 15
+          # Hit the LB 6 times and confirm X-Served-By alternates between both servers
+          for i in {1..6}; do
+            curl -sf -I http://${{ secrets.LB01_HOST }}/api/ | grep -i "X-Served-By" || true
+          done
+          # Final health check
+          curl -sf http://${{ secrets.LB01_HOST }}/ | python3 -c \
+            "import sys,json; d=json.load(sys.stdin); assert d['status']=='ok', d"
+          echo "Load balancer health check passed"

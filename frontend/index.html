@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gatsibo Smart Energy Optimizer</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo">
+        <span class="logo-icon">&#9889;</span>
+        <div>
+          <span class="logo-title">Gatsibo Energy</span>
+          <span class="logo-sub">Smart Load Optimizer</span>
+        </div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div id="weather-widget" class="weather-chip">
+        <span id="weather-temp">--°C</span>
+        <span id="weather-label">Gatsibo</span>
+      </div>
+      <span id="last-updated" class="muted-text">Updating…</span>
+    </div>
+  </header>
+
+  <!-- ── Status bar ──────────────────────────────────────────────────────── -->
+  <div id="status-bar" class="status-bar status-ok">
+    <span id="status-icon">&#9679;</span>
+    <span id="status-text">All systems normal</span>
+  </div>
+
+  <!-- ── Stat cards ──────────────────────────────────────────────────────── -->
+  <section class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Current forecast peak</div>
+      <div class="stat-value" id="stat-peak">-- MW</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Threshold</div>
+      <div class="stat-value" id="stat-threshold">20 MW</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Alert hours (24h)</div>
+      <div class="stat-value" id="stat-alerts">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active model</div>
+      <div class="stat-value" id="stat-model">Prophet</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Training data source</div>
+      <div class="stat-value" id="stat-source" style="font-size:14px">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Training rows</div>
+      <div class="stat-value" id="stat-rows">--</div>
+    </div>
+  </section>
+
+  <!-- ── Controls ────────────────────────────────────────────────────────── -->
+  <section class="controls-bar">
+    <div class="control-group">
+      <label for="model-select">Model</label>
+      <select id="model-select">
+        <option value="prophet">Prophet</option>
+        <option value="lstm">LSTM</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label for="hours-select">Horizon</label>
+      <select id="hours-select">
+        <option value="24">24 hours</option>
+        <option value="48">48 hours</option>
+        <option value="72">72 hours</option>
+        <option value="168">7 days</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label for="filter-alerts">Show</label>
+      <select id="filter-alerts">
+        <option value="all">All hours</option>
+        <option value="alerts">Alert hours only</option>
+      </select>
+    </div>
+    <button id="refresh-btn" class="btn-primary" onclick="loadForecast()">
+      &#8635; Refresh
+    </button>
+    <button id="train-btn" class="btn-secondary" onclick="trainModel()">
+      &#8635; Retrain
+    </button>
+    <button id="sync-btn" class="btn-secondary" onclick="syncEIA()">
+      &#8659; Sync EIA data
+    </button>
+  </section>
+
+  <!-- ── Main chart ──────────────────────────────────────────────────────── -->
+  <section class="card chart-card">
+    <div class="card-header">
+      <h2 class="card-title">Hourly load forecast</h2>
+      <span class="card-subtitle" id="chart-subtitle">Gatsibo District · MW</span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="forecast-chart"></canvas>
+    </div>
+  </section>
+
+  <!-- ── Forecast table ──────────────────────────────────────────────────── -->
+  <section class="card table-card">
+    <div class="card-header">
+      <h2 class="card-title">Forecast detail</h2>
+      <input id="table-search" class="search-input" type="text" placeholder="Search by time…" oninput="filterTable()" />
+    </div>
+    <div class="table-wrap">
+      <table id="forecast-table">
+        <thead>
+          <tr>
+            <th onclick="sortTable('timestamp')" class="sortable">Time &#8597;</th>
+            <th onclick="sortTable('predicted_mw')" class="sortable">Predicted MW &#8597;</th>
+            <th onclick="sortTable('lower_mw')" class="sortable">Lower &#8597;</th>
+            <th onclick="sortTable('upper_mw')" class="sortable">Upper &#8597;</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr><td colspan="5" class="empty-row">Loading forecast…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Load-shedding schedule ───────────────────────────────────────────── -->
+  <section class="card shed-card" id="shed-section" style="display:none">
+    <div class="card-header">
+      <h2 class="card-title">&#9888; Recommended load-shedding schedule</h2>
+    </div>
+    <div id="shed-table-wrap"></div>
+  </section>
+
+  <!-- ── Alert log ───────────────────────────────────────────────────────── -->
+  <section class="card alert-card">
+    <div class="card-header">
+      <h2 class="card-title">Recent alerts</h2>
+      <button class="btn-ghost" onclick="loadAlerts()">Refresh</button>
+    </div>
+    <div id="alert-list" class="alert-list">
+      <p class="muted-text">No alerts yet.</p>
+    </div>
+  </section>
+
+  <!-- ── Toast ───────────────────────────────────────────────────────────── -->
+  <div id="toast" class="toast hidden"></div>
+
+  <footer class="footer">
+    Data: <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> ·
+    SMS: <a href="https://africastalking.com" target="_blank">Africa's Talking</a> ·
+    Email: <a href="https://resend.com" target="_blank">Resend</a>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
