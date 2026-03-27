@@ -50,8 +50,8 @@ function updateDashboard(forecast, threshold) {
 
   if (hasAlerts) {
     statusBar.className = "status-bar status-alert";
-    statusIcon.textContent = "⚠";
-    statusTitle.textContent = "⚠ Demand Alert!";
+    statusIcon.className = "status-icon fas fa-exclamation-circle";
+    statusTitle.textContent = "\u26a0 Demand Alert!";
     statusText.textContent = `${alertCount} hour(s) may exceed safe threshold (${threshold} MW)`;
 
     // Show alert card
@@ -62,7 +62,7 @@ function updateDashboard(forecast, threshold) {
     alertCard.style.display = "";
   } else {
     statusBar.className = "status-bar status-ok";
-    statusIcon.textContent = "✓";
+    statusIcon.className = "status-icon fas fa-check-circle";
     statusTitle.textContent = "✓ Energy Supply Safe";
     statusText.textContent = "All forecast values are within normal range";
     document.getElementById("alert-card").style.display = "none";

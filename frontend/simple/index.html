@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gatsibo Energy — Status Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="simple-style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
@@ -13,7 +14,7 @@
   <header class="topbar">
     <div class="topbar-left">
       <div class="logo">
-        <span class="logo-icon">⚡</span>
+        <i class="logo-icon fas fa-bolt"></i>
         <div>
           <span class="logo-title">Gatsibo Smart Energy</span>
           <span class="logo-sub">Real-time Status & Forecast</span>
@@ -21,7 +22,7 @@
       </div>
     </div>
     <div class="topbar-right">
-      <a href="/advanced/" class="link-small">Technical View</a>
+      <a href="/advanced/" class="link-small"><i class="fas fa-sliders-h"></i> Technical View</a>
       <div id="weather-widget" class="weather-chip">
         <span id="weather-temp">--°C</span>
         <span id="weather-label">Gatsibo</span>
@@ -31,7 +32,7 @@
 
   <!-- ── Status bar ──────────────────────────────────────────────────────── -->
   <div id="status-bar" class="status-bar status-ok">
-    <span id="status-icon">✓</span>
+    <i id="status-icon" class="status-icon fas fa-check-circle"></i>
     <div class="status-content">
       <div id="status-title" class="status-title">Energy Supply Safe</div>
       <span id="status-text" class="status-subtitle">All forecast values are within normal range</span>
@@ -41,21 +42,21 @@
   <!-- ── Key numbers ─────────────────────────────────────────────────────── -->
   <section class="key-metrics">
     <div class="metric-large">
-      <div class="metric-icon">📊</div>
+      <i class="metric-icon fas fa-chart-bar"></i>
       <div class="metric-info">
         <div class="metric-label">Peak Load (Next 24h)</div>
         <div class="metric-value" id="metric-peak">-- MW</div>
       </div>
     </div>
     <div class="metric-large">
-      <div class="metric-icon">⚠</div>
+      <i class="metric-icon fas fa-triangle-exclamation"></i>
       <div class="metric-info">
         <div class="metric-label">Hours at Risk</div>
         <div class="metric-value" id="metric-alerts">0</div>
       </div>
     </div>
     <div class="metric-large">
-      <div class="metric-icon">🔌</div>
+      <i class="metric-icon fas fa-plug"></i>
       <div class="metric-info">
         <div class="metric-label">Safe Threshold</div>
         <div class="metric-value" id="metric-threshold">20 MW</div>
@@ -66,14 +67,14 @@
   <!-- ── Simple status cards ─────────────────────────────────────────────── -->
   <section class="status-cards">
     <div id="alert-card" class="status-card status-card-warning" style="display:none">
-      <div class="card-icon">⚠️</div>
+      <i class="card-icon fas fa-exclamation-triangle"></i>
       <div class="card-text">
-        <div class="card-title">⏰ Peak Load Alert</div>
+        <div class="card-title"><i class="fas fa-clock"></i> Peak Load Alert</div>
         <div class="card-subtitle" id="alert-time">At approximately --:--</div>
       </div>
     </div>
     <div class="status-card status-card-info">
-      <div class="card-icon">✓</div>
+      <i class="card-icon fas fa-check-circle"></i>
       <div class="card-text">
         <div class="card-title">Current Status</div>
         <div class="card-subtitle" id="current-time">Loading...</div>
@@ -83,7 +84,7 @@
 
   <!-- ── Big chart ───────────────────────────────────────────────────────── -->
   <section class="card chart-section">
-    <h2 class="section-title">📈 Electricity Demand Forecast</h2>
+    <h2 class="section-title"><i class="fas fa-chart-line"></i> Electricity Demand Forecast</h2>
     <div class="chart-wrapper">
       <canvas id="simple-chart"></canvas>
     </div>
@@ -93,16 +94,16 @@
   <!--── Action buttons ──────────────────────────────────────────────────── -->
   <section class="action-section">
     <button id="refresh-btn" class="action-btn action-btn-primary" onclick="loadData()">
-      🔄 Refresh Now
+      <i class="fas fa-rotate-right"></i> Refresh Now
     </button>
     <button id="details-btn" class="action-btn action-btn-secondary" onclick="loadDetails()">
-      📋 Show Hourly Details
+      <i class="fas fa-list"></i> Show Hourly Details
     </button>
   </section>
 
   <!-- ── Hourly details (collapsible) ─────────────────────────────────────── -->
   <section id="details-section" class="details-section" style="display:none">
-    <h2 class="section-title">⏰ Hourly Forecast Details</h2>
+    <h2 class="section-title"><i class="fas fa-clock"></i> Hourly Forecast Details</h2>
     <div class="table-wrapper">
       <table id="simple-table">
         <thead>
@@ -122,12 +123,12 @@
   <!-- ── Info section ───────────────────────────────────────────────────── -->
   <section class="info-section">
     <div class="info-card">
-      <h3>🤔 What does this mean?</h3>
-      <p><strong>Green ✓ (Safe):</strong> The power grid has enough electricity. No action needed.</p>
-      <p><strong>Red ⚠ (Alert):</strong> Demand is too high. We might need to reduce load in some areas.</p>
+      <h3><i class="fas fa-circle-question"></i> What does this mean?</h3>
+      <p><strong>Green <i class="fas fa-check"></i> (Safe):</strong> The power grid has enough electricity. No action needed.</p>
+      <p><strong>Red <i class="fas fa-triangle-exclamation"></i> (Alert):</strong> Demand is too high. We might need to reduce load in some areas.</p>
     </div>
     <div class="info-card">
-      <h3>📌 System Info</h3>
+      <h3><i class="fas fa-thumbtack"></i> System Info</h3>
       <ul>
         <li>Data source: <span id="info-source">--</span></li>
         <li>Training records: <span id="info-rows">--</span></li>
@@ -142,7 +143,7 @@
 
   <footer class="footer-simple">
     <p>Smart Energy Optimizer for Gatsibo District, Eastern Province, Rwanda</p>
-    <p>Using real-time weather data and AI predictions | <a href="/advanced/">Advanced Dashboard</a></p>
+    <p>Using real-time weather data and AI predictions | <a href="/advanced/"><i class="fas fa-sliders-h"></i> Advanced Dashboard</a></p>
   </footer>
 
   <script src="simple-app.js"></script>

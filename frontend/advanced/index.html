@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gatsibo Energy — Advanced Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
@@ -13,7 +14,7 @@
   <header class="topbar">
     <div class="topbar-left">
       <div class="logo">
-        <span class="logo-icon">&#9889;</span>
+        <i class="logo-icon fas fa-bolt"></i>
         <div>
           <span class="logo-title">Gatsibo Energy</span>
           <span class="logo-sub">Smart Load Optimizer — Stats for Nerds</span>
@@ -21,7 +22,7 @@
       </div>
     </div>
     <div class="topbar-right">
-      <a href="/" class="link">Simple View</a>
+      <a href="/" class="link"><i class="fas fa-home"></i> Simple View</a>
       <div id="weather-widget" class="weather-chip">
         <span id="weather-temp">--°C</span>
         <span id="weather-label">Gatsibo</span>
@@ -32,7 +33,7 @@
 
   <!-- ── Status bar ──────────────────────────────────────────────────────── -->
   <div id="status-bar" class="status-bar status-ok">
-    <span id="status-icon">&#9679;</span>
+    <i id="status-icon" class="fas fa-circle"></i>
     <span id="status-text">All systems normal</span>
   </div>
 
@@ -90,13 +91,13 @@
       </select>
     </div>
     <button id="refresh-btn" class="btn-primary" onclick="loadForecast()">
-      &#8635; Refresh
+      <i class="fas fa-rotate-right"></i> Refresh
     </button>
     <button id="train-btn" class="btn-secondary" onclick="trainModel()">
-      &#8635; Retrain
+      <i class="fas fa-rotate-right"></i> Retrain
     </button>
     <button id="sync-btn" class="btn-secondary" onclick="syncEIA()">
-      &#8659; Sync EIA data
+      <i class="fas fa-download"></i> Sync EIA data
     </button>
   </section>
 
@@ -121,10 +122,10 @@
       <table id="forecast-table">
         <thead>
           <tr>
-            <th onclick="sortTable('timestamp')" class="sortable">Time &#8597;</th>
-            <th onclick="sortTable('predicted_mw')" class="sortable">Predicted MW &#8597;</th>
-            <th onclick="sortTable('lower_mw')" class="sortable">Lower &#8597;</th>
-            <th onclick="sortTable('upper_mw')" class="sortable">Upper &#8597;</th>
+            <th onclick="sortTable('timestamp')" class="sortable">Time <i class="fas fa-arrows-alt-v"></i></th>
+            <th onclick="sortTable('predicted_mw')" class="sortable">Predicted MW <i class="fas fa-arrows-alt-v"></i></th>
+            <th onclick="sortTable('lower_mw')" class="sortable">Lower <i class="fas fa-arrows-alt-v"></i></th>
+            <th onclick="sortTable('upper_mw')" class="sortable">Upper <i class="fas fa-arrows-alt-v"></i></th>
             <th>Status</th>
           </tr>
         </thead>
@@ -138,7 +139,7 @@
   <!-- ── Load-shedding schedule ───────────────────────────────────────────── -->
   <section class="card shed-card" id="shed-section" style="display:none">
     <div class="card-header">
-      <h2 class="card-title">&#9888; Recommended load-shedding schedule</h2>
+      <h2 class="card-title"><i class="fas fa-triangle-exclamation"></i> Recommended load-shedding schedule</h2>
     </div>
     <div id="shed-table-wrap"></div>
   </section>

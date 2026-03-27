@@ -43,10 +43,12 @@ body {
 }
 .topbar-left { display: flex; align-items: center; }
 .logo        { display: flex; align-items: center; gap: 10px; }
-.logo-icon   { font-size: 24px; }
+.logo-icon   { font-size: 24px; width: 24px; display: flex; align-items: center; justify-content: center; }
 .logo-title  { display: block; font-weight: 600; font-size: 15px; }
 .logo-sub    { display: block; font-size: 11px; color: var(--muted); }
 .topbar-right { display: flex; align-items: center; gap: 16px; }
+.link { color: #2563eb; text-decoration: none; font-size: 13px; font-weight: 500; }
+.link:hover { text-decoration: underline; }
 
 .weather-chip {
   background: var(--accent-light);

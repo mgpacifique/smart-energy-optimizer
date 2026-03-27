@@ -140,11 +140,11 @@ function updateStatusBar(forecast, threshold) {
   if (alertHours.length === 0) {
     bar.classList.add("status-ok");
     text.textContent = "All forecast values within safe threshold";
-    icon.textContent = "●";
+    icon.className = "fas fa-check-circle";
   } else {
     bar.classList.add("status-alert");
-    text.textContent = `ALERT — ${alertHours.length} hour(s) forecast above ${threshold} MW`;
-    icon.textContent = "⚠";
+    text.textContent = `ALERT \u2014 ${alertHours.length} hour(s) forecast above ${threshold} MW`;
+    icon.className = "fas fa-exclamation-circle";
     buildShedSchedule(alertHours, threshold);
   }
 }

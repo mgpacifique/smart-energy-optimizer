@@ -57,6 +57,11 @@ body {
 
 .logo-icon {
   font-size: 32px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .logo-title {
@@ -134,9 +139,13 @@ body {
   border-left: 6px solid var(--accent-red);
 }
 
-#status-icon {
+.status-icon {
   font-size: 32px;
   flex-shrink: 0;
+  width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .status-content {
@@ -183,6 +192,11 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
 }
+  width: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-blue);
 
 .metric-icon {
   font-size: 40px;
@@ -234,6 +248,10 @@ body {
   background: rgba(220, 38, 38, 0.06);
   border-left-color: var(--accent-red);
 }
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
 .status-card-info {
   background: rgba(37, 99, 235, 0.06);

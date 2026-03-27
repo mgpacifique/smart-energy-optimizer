@@ -6,7 +6,7 @@ Prophet handles:
   - Daily seasonality  (morning / evening peaks)
   - Weekly seasonality (weekday vs weekend)
   - Yearly seasonality (Rwanda dry / rainy seasons)
-  - External regressors: temperature, humidity, solar radiation
+    - Trend changepoints with tuned flexibility for grid load shifts
 
 Usage:
     model = ProphetForecaster()
@@ -22,8 +22,6 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from prophet import Prophet
-
-from weather import fetch_forecast, weather_to_dataframe
 
 logger = logging.getLogger(__name__)
 
@@ -44,13 +42,13 @@ class ProphetForecaster:
     def train(self, data_path: Path = DATA_PATH) -> None:
         """
         Train Prophet on historical load data.
-        Expects CSV with columns: ds, load_mw, temp_c
+        Expects CSV with columns: ds, load_mw
         """
         logger.info("[prophet] Loading training data from %s", data_path)
         df = pd.read_csv(data_path, parse_dates=["ds"])
 
         # Prophet requires columns named 'ds' and 'y'
-        train_df = df.rename(columns={"load_mw": "y"})[["ds", "y", "temp_c"]]
+        train_df = df.rename(columns={"load_mw": "y"})[["ds", "y"]]
         train_df = train_df.dropna()
 
         logger.info("[prophet] Training on %d rows…", len(train_df))
@@ -59,11 +57,11 @@ class ProphetForecaster:
 
         try:
             self.model = Prophet(
-                daily_seasonality=True,
-                weekly_seasonality=True,
-                yearly_seasonality=True,
-                seasonality_mode="multiplicative",
-                changepoint_prior_scale=0.05,
+                daily_seasonality=False,
+                weekly_seasonality=False,
+                yearly_seasonality=False,
+                seasonality_mode="additive",
+                changepoint_prior_scale=0.15,
                 stan_backend="CMDSTANPY",
             )
         except Exception as exc:
@@ -72,7 +70,10 @@ class ProphetForecaster:
                 "Run: python3 -c \"import cmdstanpy; cmdstanpy.install_cmdstan()\""
             ) from exc
 
-        self.model.add_regressor("temp_c")
+        # Tuned Fourier orders to better capture hourly grid dynamics.
+        self.model.add_seasonality(name="daily", period=1, fourier_order=12)
+        self.model.add_seasonality(name="weekly", period=7, fourier_order=5)
+        self.model.add_seasonality(name="yearly", period=365.25, fourier_order=8)
         self.model.fit(train_df)
 
         self._save_model()
@@ -91,29 +92,12 @@ class ProphetForecaster:
         if self.model is None:
             raise RuntimeError("Model not trained. Call train() first.")
 
-        # Build future dataframe
-        future = self.model.make_future_dataframe(periods=hours, freq="h")
-
-        # Attach temperature forecast from Open-Meteo
-        try:
-            raw_weather = fetch_forecast(days_ahead=max(1, hours // 24 + 1))
-            weather_df  = weather_to_dataframe(raw_weather).reset_index()
-            weather_df  = weather_df.rename(columns={"ds": "ds", "temperature_2m": "temp_c"})
-            future = future.merge(
-                weather_df[["ds", "temp_c"]],
-                on="ds",
-                how="left",
-            )
-        except Exception as exc:
-            logger.warning("[prophet] Weather fetch failed (%s) — using mean temp.", exc)
-            future["temp_c"] = 21.5   # fallback: Rwanda annual mean
-
-        future["temp_c"] = future["temp_c"].fillna(21.5)
+        # Build only future rows; no external regressors are required.
+        future = self.model.make_future_dataframe(periods=hours, freq="h", include_history=False)
 
         forecast = self.model.predict(future)
 
-        # Extract the forecast window (future rows only)
-        result_df = forecast.tail(hours)[["ds", "yhat", "yhat_lower", "yhat_upper"]]
+        result_df = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]]
 
         results = []
         for _, row in result_df.iterrows():
