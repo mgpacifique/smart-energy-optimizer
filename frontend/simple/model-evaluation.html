@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Model Evaluation - Gatsibo Energy</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="simple-style.css" />
+  <link rel="stylesheet" href="model-evaluation.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo">
+        <i class="logo-icon fas fa-scale-balanced"></i>
+        <div>
+          <span class="logo-title">Best Model Analysis</span>
+          <span class="logo-sub">Evaluation summary and recommendation</span>
+        </div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <a href="/app/" class="link-small"><i class="fas fa-house"></i> Dashboard</a>
+      <a href="/advanced/" class="link-small"><i class="fas fa-sliders-h"></i> Technical View</a>
+    </div>
+  </header>
+
+  <main class="evaluation-main">
+    <section class="recommendation-card" id="recommendation-card">
+      <div class="rec-icon-wrap"><i class="fas fa-award"></i></div>
+      <div class="rec-content">
+        <p class="rec-label">Recommended Model</p>
+        <h1 id="recommended-model">Loading...</h1>
+        <p id="recommendation-explanation">Fetching latest evaluation metrics.</p>
+        <p class="rec-meta">Generated: <span id="generated-at">--</span></p>
+      </div>
+    </section>
+
+    <section class="card eval-chart-card">
+      <div class="eval-header">
+        <h2><i class="fas fa-chart-column"></i> Model Comparison</h2>
+        <div class="eval-actions">
+          <button id="run-eval" class="action-btn action-btn-primary" type="button">
+            <i class="fas fa-play"></i> Run Evaluation Now
+          </button>
+          <button id="reload-eval" class="action-btn action-btn-secondary" type="button">
+            <i class="fas fa-rotate-right"></i> Reload Results
+          </button>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="eval-chart"></canvas>
+      </div>
+    </section>
+
+    <section class="card eval-table-card">
+      <div class="eval-header">
+        <h2><i class="fas fa-table"></i> Evaluation Metrics</h2>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>MAE (MW)</th>
+              <th>RMSE (MW)</th>
+              <th>MAPE (%)</th>
+              <th>Quality</th>
+              <th>Overall Score</th>
+            </tr>
+          </thead>
+          <tbody id="eval-table-body">
+            <tr><td colspan="6" class="loading">Loading evaluation data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="guide-grid">
+      <article class="info-card">
+        <h3><i class="fas fa-circle-info"></i> How to Read the Metrics</h3>
+        <ul class="guide-list">
+          <li><strong>MAE:</strong> Average MW error. Smaller means closer day-to-day predictions.</li>
+          <li><strong>RMSE:</strong> Penalizes big misses more than MAE. Smaller means fewer large spikes in error.</li>
+          <li><strong>MAPE:</strong> Percentage error. Best for easy comparison across models.</li>
+          <li><strong>Overall Score:</strong> Combined ranking used to pick one practical winner.</li>
+        </ul>
+      </article>
+
+      <article class="info-card" id="decision-card">
+        <h3><i class="fas fa-lightbulb"></i> Practical Decision</h3>
+        <p id="decision-summary">Waiting for evaluation results...</p>
+      </article>
+    </section>
+
+    <section class="card interpretation-card">
+      <div class="eval-header">
+        <h2><i class="fas fa-magnifying-glass-chart"></i> Comprehensive Interpretation</h2>
+      </div>
+      <div id="interpretation-content" class="interpretation-content">
+        <p>Loading interpretation...</p>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="model-evaluation.js"></script>
+</body>
+</html>

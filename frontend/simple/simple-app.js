@@ -51,7 +51,7 @@ function updateDashboard(forecast, threshold) {
   if (hasAlerts) {
     statusBar.className = "status-bar status-alert";
     statusIcon.className = "status-icon fas fa-exclamation-circle";
-    statusTitle.textContent = "\u26a0 Demand Alert!";
+    statusTitle.textContent = "Demand Alert";
     statusText.textContent = `${alertCount} hour(s) may exceed safe threshold (${threshold} MW)`;
 
     // Show alert card
@@ -63,7 +63,7 @@ function updateDashboard(forecast, threshold) {
   } else {
     statusBar.className = "status-bar status-ok";
     statusIcon.className = "status-icon fas fa-check-circle";
-    statusTitle.textContent = "✓ Energy Supply Safe";
+    statusTitle.textContent = "Energy Supply Safe";
     statusText.textContent = "All forecast values are within normal range";
     document.getElementById("alert-card").style.display = "none";
   }
@@ -190,10 +190,10 @@ function loadDetails() {
   const section = document.getElementById("details-section");
   if (section.style.display === "none") {
     section.style.display = "";
-    document.getElementById("details-btn").textContent = "📋 Hide Hourly Details";
+    document.getElementById("details-btn").innerHTML = '<i class="fas fa-list"></i> Hide Hourly Details';
   } else {
     section.style.display = "none";
-    document.getElementById("details-btn").textContent = "📋 Show Hourly Details";
+    document.getElementById("details-btn").innerHTML = '<i class="fas fa-list"></i> Show Hourly Details';
   }
 }
 
@@ -204,7 +204,9 @@ function populateTable(forecast, threshold) {
     const d = new Date(f.timestamp);
     const time = d.toLocaleTimeString([], {hour: "2-digit", minute:"2-digit"});
     const isSafe = f.predicted_mw < threshold;
-    const status = isSafe ? "✓ Safe" : "⚠ Alert";
+    const status = isSafe
+      ? '<i class="fas fa-check-circle"></i> Safe'
+      : '<i class="fas fa-exclamation-triangle"></i> Alert';
     const statusClass = isSafe ? "status-safe" : "status-alert";
 
     return `

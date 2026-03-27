@@ -343,6 +343,14 @@ body {
   letter-spacing: 0.5px;
 }
 
+.action-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 .action-btn-primary {
   background: var(--accent-blue);
   color: white;
