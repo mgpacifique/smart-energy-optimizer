@@ -24,6 +24,7 @@ from typing import Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -71,7 +72,7 @@ if os.path.isdir(frontend_base):
     # Simple (default) frontend
     simple_path = os.path.join(frontend_base, "simple")
     if os.path.isdir(simple_path):
-        app.mount("/app", StaticFiles(directory=simple_path, html=True), name="simple_frontend")
+        app.mount("/simple", StaticFiles(directory=simple_path, html=True), name="simple_frontend")
     # Advanced (detailed) frontend
     advanced_path = os.path.join(frontend_base, "advanced")
     if os.path.isdir(advanced_path):
@@ -96,7 +97,45 @@ class WebhookPayload(BaseModel):
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
-@app.get("/", tags=["Health"])
+@app.get("/", include_in_schema=False)
+def root_redirect():
+    return RedirectResponse(url="/simple/", status_code=307)
+
+
+@app.get("/app", include_in_schema=False)
+def app_redirect_root():
+    return RedirectResponse(url="/simple/", status_code=307)
+
+
+@app.get("/app/advanced", include_in_schema=False)
+def app_advanced_redirect_root():
+    return RedirectResponse(url="/advanced/", status_code=307)
+
+
+@app.get("/app/advanced/{path:path}", include_in_schema=False)
+def app_advanced_redirect_path(path: str):
+    target = f"/advanced/{path}" if path else "/advanced/"
+    return RedirectResponse(url=target, status_code=307)
+
+
+@app.get("/app/{path:path}", include_in_schema=False)
+def app_redirect_path(path: str):
+    target = f"/simple/{path}" if path else "/simple/"
+    return RedirectResponse(url=target, status_code=307)
+
+
+@app.get("/technical", include_in_schema=False)
+def technical_redirect_root():
+    return RedirectResponse(url="/advanced/", status_code=307)
+
+
+@app.get("/technical/{path:path}", include_in_schema=False)
+def technical_redirect_path(path: str):
+    target = f"/advanced/{path}" if path else "/advanced/"
+    return RedirectResponse(url=target, status_code=307)
+
+
+@app.get("/health", tags=["Health"])
 def health():
     return {
         "status":  "ok",
