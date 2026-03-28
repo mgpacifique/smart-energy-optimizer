@@ -4,7 +4,7 @@
  * Shows only the most important information in easy-to-understand format
  */
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://54.165.62.144";
 let simpleChart = null;
 
 // Load on start

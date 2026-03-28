@@ -4,7 +4,7 @@
  * Fetches forecast + alert data from the FastAPI backend and renders them.
  */
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://54.165.62.144";
 
 let forecastData  = [];   // raw forecast array from API
 let sortKey       = "timestamp";

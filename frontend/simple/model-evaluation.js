@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://54.165.62.144";
 let evalChart = null;
 
 window.addEventListener("DOMContentLoaded", () => {
