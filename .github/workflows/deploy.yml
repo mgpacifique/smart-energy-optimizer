@@ -112,10 +112,10 @@ jobs:
         run: sleep 30
 
       - name: Health check Web01 directly
-        run: curl -sf "http://${{ secrets.WEB01_HOST }}:8000/" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='ok'" && echo "Web01 healthy"
+        run: curl -sf "http://${{ secrets.WEB01_HOST }}:8000/health" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='ok'" && echo "Web01 healthy"
 
       - name: Health check Web02 directly
-        run: curl -sf "http://${{ secrets.WEB02_HOST }}:8000/" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='ok'" && echo "Web02 healthy"
+        run: curl -sf "http://${{ secrets.WEB02_HOST }}:8000/health" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='ok'" && echo "Web02 healthy"
 
       - name: Health check through load balancer
-        run: curl -sf "http://${{ secrets.LB01_HOST }}/" && echo "LB healthy"
+        run: curl -sf "http://${{ secrets.LB01_HOST }}/health" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='ok'" && echo "LB healthy"
