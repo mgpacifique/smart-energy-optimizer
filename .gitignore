@@ -12,8 +12,6 @@ venv/
 *.egg-info/
 
 # Model artifacts (large files — regenerate on server)
-backend/models/
-backend/data/
 
 # Node
 node_modules/
