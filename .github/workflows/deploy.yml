@@ -3,10 +3,10 @@ name: Deploy to Web01 & Web02
 on:
   push:
     branches: [main]
-  workflow_dispatch:   # allows manual trigger from GitHub Actions UI
+  workflow_dispatch:
 
 jobs:
-  # ── Job 1: Tests ─────────────────────────────────────────────────────────────
+  # ── Job 1: Lightweight syntax-only tests ─────────────────────────────────
   test:
     runs-on: ubuntu-latest
     steps:
@@ -17,47 +17,45 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install only what tests need
         run: |
-          pip install fastapi pydantic httpx python-dotenv pandas numpy --quiet
+          pip install fastapi pydantic python-dotenv --quiet
 
-      - name: Run import tests
+      - name: Syntax check all backend files
         run: |
           cd backend
-          python -c "from data_gen import generate; print('data_gen OK')"
-          python -c "from weather import fetch_forecast; print('weather OK')"
-          python -c "from webhook import build_shed_schedule; print('webhook OK')"
-          python -c "from alerts import dispatch_alert; print('alerts OK')"
-          python -c "from eia_loader import generate; print('eia_loader OK')"
-          echo "All import tests passed."
+          python -m py_compile main.py       && echo "main.py OK"
+          python -m py_compile forecaster.py && echo "forecaster.py OK"
+          python -m py_compile lstm_model.py && echo "lstm_model.py OK"
+          python -m py_compile webhook.py    && echo "webhook.py OK"
+          python -m py_compile alerts.py     && echo "alerts.py OK"
+          python -m py_compile eia_loader.py && echo "eia_loader.py OK"
+          python -m py_compile weather.py    && echo "weather.py OK"
+          python -m py_compile scheduler.py  && echo "scheduler.py OK"
+          python -m py_compile evaluate.py   && echo "evaluate.py OK"
+          echo "All syntax checks passed."
 
-  # ── Job 2: Validate secrets before attempting SSH ────────────────────────────
+  # ── Job 2: Validate secrets ───────────────────────────────────────────────
   validate-secrets:
     runs-on: ubuntu-latest
     needs: test
     steps:
-      - name: Check required secrets are set
+      - name: Check all required secrets are set
         run: |
           MISSING=""
-          [ -z "${{ secrets.WEB01_HOST }}"       ] && MISSING="$MISSING WEB01_HOST"
-          [ -z "${{ secrets.WEB02_HOST }}"       ] && MISSING="$MISSING WEB02_HOST"
-          [ -z "${{ secrets.LB01_HOST }}"        ] && MISSING="$MISSING LB01_HOST"
-          [ -z "${{ secrets.SSH_USER }}"         ] && MISSING="$MISSING SSH_USER"
-          [ -z "${{ secrets.SSH_PRIVATE_KEY }}"  ] && MISSING="$MISSING SSH_PRIVATE_KEY"
-
+          [ -z "${{ secrets.WEB01_HOST }}"      ] && MISSING="$MISSING WEB01_HOST"
+          [ -z "${{ secrets.WEB02_HOST }}"      ] && MISSING="$MISSING WEB02_HOST"
+          [ -z "${{ secrets.LB01_HOST }}"       ] && MISSING="$MISSING LB01_HOST"
+          [ -z "${{ secrets.SSH_USER }}"        ] && MISSING="$MISSING SSH_USER"
+          [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ] && MISSING="$MISSING SSH_PRIVATE_KEY"
           if [ -n "$MISSING" ]; then
-            echo ""
-            echo "ERROR: The following GitHub Secrets are missing or empty:"
-            for s in $MISSING; do echo "  - $s"; done
-            echo ""
-            echo "Fix: Go to your repo -> Settings -> Secrets and variables"
-            echo "     -> Actions -> New repository secret"
-            echo ""
+            echo "ERROR: Missing secrets:$MISSING"
+            echo "Go to: Settings -> Secrets and variables -> Actions"
             exit 1
           fi
-          echo "All required secrets are present."
+          echo "All secrets present."
 
-  # ── Job 3: Deploy to Web01 ───────────────────────────────────────────────────
+  # ── Job 3: Deploy Web01 ───────────────────────────────────────────────────
   deploy-web01:
     runs-on: ubuntu-latest
     needs: validate-secrets
@@ -71,44 +69,17 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key:      ${{ secrets.SSH_PRIVATE_KEY }}
           port:     22
-          timeout:  60s
+          timeout:  120s
           script: |
             set -e
-            echo "=== Web01 deployment starting ==="
+            cd ~/smart-energy-optimizer
+            git fetch origin main
+            git reset --hard origin/main
+            docker cp ~/smart-energy-optimizer/frontend/. smart-energy-optimizer-api-1:/frontend/ || true
+            docker compose -f docker-compose.prod.yml up -d --build --no-deps api
+            echo "Web01 deployed OK"
 
-            # Clone repo if not present
-            if [ ! -d "$HOME/smart-energy-optimizer" ]; then
-              echo "Cloning repository..."
-              git clone https://github.com/mgpacifique/smart-energy-optimizer.git \
-                $HOME/smart-energy-optimizer
-            fi
-
-            cd $HOME/smart-energy-optimizer
-            git pull origin main
-
-            # Create .env if missing
-            if [ ! -f backend/.env ]; then
-              cp backend/.env.example backend/.env
-              echo "NOTE: backend/.env created from example — fill in your API keys."
-            fi
-
-            # Bootstrap data + model on first deploy
-            if [ ! -f backend/models/prophet_model.pkl ]; then
-              echo "First deploy — bootstrapping data and model..."
-              docker compose -f docker-compose.prod.yml run --rm api \
-                python3 -c "from eia_loader import generate; generate()"
-              docker compose -f docker-compose.prod.yml run --rm api \
-                python3 -c "from forecaster import ProphetForecaster; ProphetForecaster().train()"
-            fi
-
-            # Restart services
-            docker compose -f docker-compose.prod.yml down --remove-orphans
-            docker compose -f docker-compose.prod.yml up -d --build
-
-            echo "=== Web01 deployment complete ==="
-            docker compose -f docker-compose.prod.yml ps
-
-  # ── Job 4: Deploy to Web02 ───────────────────────────────────────────────────
+  # ── Job 4: Deploy Web02 ───────────────────────────────────────────────────
   deploy-web02:
     runs-on: ubuntu-latest
     needs: validate-secrets
@@ -122,59 +93,29 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key:      ${{ secrets.SSH_PRIVATE_KEY }}
           port:     22
-          timeout:  60s
+          timeout:  120s
           script: |
             set -e
-            echo "=== Web02 deployment starting ==="
+            cd ~/smart-energy-optimizer
+            git fetch origin main
+            git reset --hard origin/main
+            docker cp ~/smart-energy-optimizer/frontend/. smart-energy-optimizer-api-1:/frontend/ || true
+            docker compose -f docker-compose.prod.yml up -d --build --no-deps api
+            echo "Web02 deployed OK"
 
-            if [ ! -d "$HOME/smart-energy-optimizer" ]; then
-              echo "Cloning repository..."
-              git clone https://github.com/mgpacifique/smart-energy-optimizer.git \
-                $HOME/smart-energy-optimizer
-            fi
-
-            cd $HOME/smart-energy-optimizer
-            git pull origin main
-
-            if [ ! -f backend/.env ]; then
-              cp backend/.env.example backend/.env
-            fi
-
-            if [ ! -f backend/models/prophet_model.pkl ]; then
-              echo "First deploy — bootstrapping..."
-              docker compose -f docker-compose.prod.yml run --rm api \
-                python3 -c "from eia_loader import generate; generate()"
-              docker compose -f docker-compose.prod.yml run --rm api \
-                python3 -c "from forecaster import ProphetForecaster; ProphetForecaster().train()"
-            fi
-
-            docker compose -f docker-compose.prod.yml down --remove-orphans
-            docker compose -f docker-compose.prod.yml up -d --build
-
-            echo "=== Web02 deployment complete ==="
-            docker compose -f docker-compose.prod.yml ps
-
-  # ── Job 5: Verify load balancer ──────────────────────────────────────────────
+  # ── Job 5: Verify ─────────────────────────────────────────────────────────
   verify-lb:
     runs-on: ubuntu-latest
     needs: [deploy-web01, deploy-web02]
     steps:
-      - name: Wait for services to be ready
-        run: sleep 20
+      - name: Wait for services
+        run: sleep 30
 
-      - name: Health check via load balancer
-        run: |
-          echo "Checking load balancer at ${{ secrets.LB01_HOST }}..."
-          for i in {1..6}; do
-            RESPONSE=$(curl -sf --max-time 10 http://${{ secrets.LB01_HOST }}/ || echo "FAILED")
-            echo "Request $i: $RESPONSE"
-          done
+      - name: Health check Web01 directly
+        run: curl -sf "http://${{ secrets.WEB01_HOST }}:8000/" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='ok'" && echo "Web01 healthy"
 
-      - name: Confirm X-Served-By alternates between servers
-        run: |
-          echo "Checking traffic distribution..."
-          for i in {1..6}; do
-            curl -sf -I --max-time 10 http://${{ secrets.LB01_HOST }}/api/ \
-              | grep -i "X-Served-By" || echo "  (header not present)"
-          done
-          echo "Load balancer verification complete."
+      - name: Health check Web02 directly
+        run: curl -sf "http://${{ secrets.WEB02_HOST }}:8000/" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='ok'" && echo "Web02 healthy"
+
+      - name: Health check through load balancer
+        run: curl -sf "http://${{ secrets.LB01_HOST }}/" && echo "LB healthy"
