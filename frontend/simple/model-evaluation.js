@@ -1,5 +1,6 @@
 const API_BASE = window.location.origin;
 let evalChart = null;
+let statusPollingInterval = null;
 
 window.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("reload-eval");
@@ -30,34 +31,86 @@ async function loadEvaluation() {
   }
 }
 
+async function startEvaluationInBackground() {
+  try {
+    const res = await fetch(`${API_BASE}/api/evaluation/run`, { method: "POST" });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText);
+    }
+
+    const payload = await res.json();
+    showToast(`✓ ${payload.message}`, "success");
+    
+    // Start polling for status
+    pollEvaluationStatus();
+  } catch (err) {
+    showToast("Failed to start evaluation: " + err.message, "error");
+  }
+}
+
+async function pollEvaluationStatus() {
+  if (statusPollingInterval) clearInterval(statusPollingInterval);
+
+  // Poll every 3 seconds
+  statusPollingInterval = setInterval(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/evaluation/status`);
+      if (!res.ok) throw new Error("Failed to fetch status");
+
+      const status = await res.json();
+      const runBtn = document.getElementById("run-eval");
+
+      if (status.status === "running") {
+        if (runBtn) {
+          runBtn.disabled = true;
+          runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Evaluating...';
+        }
+        // Log tail if available
+        if (status.log_tail) {
+          console.log("Evaluation progress:", status.log_tail);
+        }
+      } else if (status.status === "completed") {
+        clearInterval(statusPollingInterval);
+        if (runBtn) {
+          runBtn.disabled = false;
+          runBtn.innerHTML = '<i class="fas fa-play"></i> Run Evaluation Now';
+        }
+        showToast("✓ Evaluation completed! Results updated.", "success");
+        // Load the fresh results
+        await loadEvaluation();
+      } else if (status.status === "completed_with_errors") {
+        clearInterval(statusPollingInterval);
+        if (runBtn) {
+          runBtn.disabled = false;
+          runBtn.innerHTML = '<i class="fas fa-play"></i> Run Evaluation Now';
+        }
+        showToast("⚠ Evaluation completed but with errors. Check logs.", "error");
+      } else if (status.status === "idle") {
+        if (runBtn) {
+          runBtn.disabled = false;
+          runBtn.innerHTML = '<i class="fas fa-play"></i> Run Evaluation Now';
+        }
+      }
+    } catch (err) {
+      console.error("Status polling error:", err);
+    }
+  }, 3000);
+}
+
 async function runEvaluation() {
   const runBtn = document.getElementById("run-eval");
   if (runBtn) {
     runBtn.disabled = true;
-    runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+    runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
   }
 
   try {
-    const res = await fetch(`${API_BASE}/api/evaluation/run`, { method: "POST" });
-    if (!res.ok) {
-      throw new Error(await res.text());
-    }
-
-    const payload = await res.json();
-    const summary = payload.summary;
-    renderRecommendation(summary);
-    renderTable(summary);
-    renderChart(summary);
-    renderInterpretation(summary);
-    showToast("Evaluation completed and results updated.", "success");
+    await startEvaluationInBackground();
   } catch (err) {
     showToast("Evaluation failed: " + err.message, "error");
-  } finally {
-    if (runBtn) {
-      runBtn.disabled = false;
-      runBtn.innerHTML = '<i class="fas fa-play"></i> Run Evaluation Now';
-    }
   }
+  // Button state will be updated by polling
 }
 
 function renderRecommendation(payload) {

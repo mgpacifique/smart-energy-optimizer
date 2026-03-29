@@ -314,49 +314,111 @@ def model_evaluation_summary():
 @app.post("/api/evaluation/run", tags=["Model"])
 def run_model_evaluation():
     """
-    Execute evaluate.py and return latest summary metrics.
+    Execute evaluate.py in background using tmux and return status.
+    Does not block — returns immediately.
+    Check status with GET /api/evaluation/status
     """
     backend_dir = Path(__file__).parent
-    cmd = [sys.executable, "evaluate.py"]
-
-    try:
-        proc = subprocess.run(
-            cmd,
-            cwd=str(backend_dir),
-            capture_output=True,
-            text=True,
-            timeout=600,
-            check=False,
+    session_name = "eval-momo"
+    
+    # Check if tmux session already running
+    check_cmd = f"tmux has-session -t {session_name} 2>/dev/null && echo 'running' || echo 'stopped'"
+    result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True)
+    session_exists = "running" in result.stdout
+    
+    if not session_exists:
+        # Create new tmux session in detached mode and run evaluation
+        create_cmd = (
+            f"tmux new-session -d -s {session_name} -c '{backend_dir}' "
+            f"'{sys.executable} evaluate.py 2>&1 | tee /tmp/eval-momo.log'"
         )
-    except subprocess.TimeoutExpired:
-        raise HTTPException(
-            status_code=504,
-            detail="Evaluation timed out after 10 minutes. Try again or reduce workload.",
-        )
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to run evaluation: {exc}")
+        try:
+            subprocess.run(create_cmd, shell=True, check=True, timeout=5)
+            return {
+                "status": "started",
+                "message": "Evaluation started in background (tmux session 'eval-momo')",
+                "session": session_name,
+                "log_file": "/tmp/eval-momo.log",
+            }
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Failed to start background evaluation: {exc}"
+            )
+    else:
+        return {
+            "status": "already_running",
+            "message": "An evaluation is already running in tmux session 'eval-momo'",
+            "session": session_name,
+            "log_file": "/tmp/eval-momo.log",
+        }
 
-    stdout_tail = "\n".join((proc.stdout or "").strip().splitlines()[-20:])
-    stderr_tail = "\n".join((proc.stderr or "").strip().splitlines()[-20:])
 
-    if proc.returncode != 0:
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Evaluation script failed.",
-                "exit_code": proc.returncode,
-                "stdout_tail": stdout_tail,
-                "stderr_tail": stderr_tail,
-            },
-        )
-
-    summary = model_evaluation_summary()
-    return {
-        "status": "ok",
-        "message": "Evaluation completed and results refreshed.",
-        "stdout_tail": stdout_tail,
-        "summary": summary,
+@app.get("/api/evaluation/status", tags=["Model"])
+def get_evaluation_status():
+    """
+    Check status of background evaluation session.
+    Returns: running, completed, or failed
+    """
+    session_name = "eval-momo"
+    
+    # Check if tmux session exists
+    check_cmd = f"tmux has-session -t {session_name} 2>/dev/null && echo 'running' || echo 'stopped'"
+    result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True)
+    is_running = "running" in result.stdout
+    
+    # Check if eval_results.csv was updated recently (within last 5 min)
+    eval_path = Path(__file__).parent / "data" / "eval_results.csv"
+    
+    status_info = {
+        "session_exists": is_running,
+        "eval_file_exists": eval_path.exists(),
     }
+    
+    if eval_path.exists():
+        import time
+        mtime = eval_path.stat().st_mtime
+        age_seconds = time.time() - mtime
+        status_info["eval_file_age_seconds"] = age_seconds
+        status_info["just_completed"] = age_seconds < 300  # Updated in last 5 min
+    
+    # Try to read log file
+    log_path = Path("/tmp/eval-momo.log")
+    if log_path.exists():
+        try:
+            with open(log_path, 'r') as f:
+                log_lines = f.readlines()
+                status_info["log_tail"] = "".join(log_lines[-10:])
+        except:
+            pass
+    
+    if is_running:
+        return {
+            "status": "running",
+            "message": "Evaluation is in progress",
+            **status_info,
+        }
+    elif status_info.get("just_completed"):
+        try:
+            summary = model_evaluation_summary()
+            return {
+                "status": "completed",
+                "message": "Evaluation just completed",
+                "summary": summary,
+                **status_info,
+            }
+        except:
+            return {
+                "status": "completed_with_errors",
+                "message": "Evaluation completed but could not read results",
+                **status_info,
+            }
+    else:
+        return {
+            "status": "idle",
+            "message": "No evaluation currently running",
+            **status_info,
+        }
 
 
 @app.post("/api/eia/sync", tags=["Data"])
