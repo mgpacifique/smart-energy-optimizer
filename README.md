@@ -6,6 +6,21 @@ Training data is sourced from the **U.S. Energy Information Administration (EIA)
 
 ---
 
+## 🌐 Live Demo
+
+The application is deployed on two AWS EC2 instances behind an Nginx load balancer. You can access it via any of the links below:
+
+| URL | Protocol | Notes |
+|-----|----------|-------|
+| **[https://www.booklogger.tech](https://www.booklogger.tech)** | HTTPS ✅ | Primary — secure, domain-based access |
+| **[http://lb-01.booklogger.tech](http://lb-01.booklogger.tech)** | HTTP | Load balancer direct |
+| **[http://54.165.62.144](http://54.165.62.144)** | HTTP | Raw IP fallback |
+
+> [!NOTE]
+> The app runs on two backend servers (Web01 & Web02). If a page loads slowly or returns an error, **simply refresh** — the load balancer will route your next request to the other server.
+
+---
+
 ## What I Accomplished
 
 | Milestone | Details |
