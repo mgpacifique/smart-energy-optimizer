@@ -25,68 +25,82 @@ Training data is sourced from the **U.S. Energy Information Administration (EIA)
 
 ## Architecture & Program Flow
 
-The system is structured in three layers — **Data**, **Forecast**, and **Output** — with the webhook pipeline running in parallel to the dashboard.
+The system is structured in three layers — **Data**, **Forecast**, and **Output** — with a webhook pipeline running in parallel to the dashboard.
+
+### Application Flow
 
 ```mermaid
 flowchart TD
-    %% ── DATA LAYER ──────────────────────────────────────────────────
-    subgraph DATA["📦 Data Layer"]
-        A["🌤 Open-Meteo API\nFree weather data — Dallas, TX"]
-        B["📊 Historical Load Data\nEIA ERCO series — real TX demand"]
-        C["🕐 Time-of-Day Features\nHour, weekday, season"]
+    subgraph DATA [Data Layer]
+        A[Open-Meteo API\nWeather — Dallas, TX]
+        B[Historical Load Data\nEIA ERCO series]
+        C[Time-of-Day Features\nHour / weekday / season]
     end
 
-    %% ── FORECAST LAYER ──────────────────────────────────────────────
-    subgraph FORECAST["🔮 Forecast Layer"]
-        D["🧠 Forecasting Model\nProphet (primary) · LSTM (secondary)"]
-        E["⚡ FastAPI Endpoint\nGET /api/forecast"]
+    subgraph FORECAST [Forecast Layer]
+        D[Forecasting Model\nProphet or LSTM]
+        E[FastAPI Endpoint\nGET /api/forecast]
     end
 
-    %% ── WEBHOOK LAYER ───────────────────────────────────────────────
-    subgraph WEBHOOK["🔔 Webhook Pipeline"]
-        F["🔎 Threshold Checker\nLoad > 20 MW → trigger"]
-        G["📡 Webhook Dispatcher\nHTTP POST to controller"]
+    subgraph WEBHOOK [Webhook Pipeline]
+        F[Threshold Checker\nLoad greater than 20 MW]
+        G[Webhook Dispatcher\nHTTP POST to controller]
     end
 
-    %% ── OUTPUT LAYER ────────────────────────────────────────────────
-    subgraph OUTPUT["📺 Output Layer"]
-        H["🖥 Smart Grid Dashboard\nLoad-shedding schedule"]
-        I["🎮 Mock Grid Controller\nReceives webhook payload"]
-        J["🚨 Alerts\nSMS (Africa's Talking)\nEmail (Resend)"]
+    subgraph OUTPUT [Output Layer]
+        H[Smart Grid Dashboard\nLoad-shedding schedule]
+        I[Mock Grid Controller\nReceives webhook payload]
+        J[Alerts\nSMS and Email]
     end
 
-    %% ── INFRASTRUCTURE ──────────────────────────────────────────────
-    subgraph INFRA["🏗 Infrastructure"]
-        K["⚖ Nginx Load Balancer\nLb01 — round-robin"]
-        L["🖥 Web01\nFastAPI + Redis"]
-        M["🖥 Web02\nFastAPI + Redis"]
-    end
-
-    %% ── EDGES ───────────────────────────────────────────────────────
     A -->|weather features| D
     B -->|training data| D
     C -->|temporal features| D
-    D -->|predictions| E
+    D -->|model output| E
     E -->|forecast array| F
     E -->|forecast JSON| H
     F -->|threshold breach| G
     G -->|HTTP POST| I
     I -->|triggers| J
-    K -->|distributes traffic| L
-    K -->|distributes traffic| M
-    L & M -->|serve| E
+```
+
+### Infrastructure
+
+```mermaid
+flowchart LR
+    Client([Browser / API Client])
+
+    subgraph LB [Load Balancer]
+        K[Nginx — Lb01\nRound-robin]
+    end
+
+    subgraph WEB1 [Web01]
+        L1[FastAPI]
+        R1[(Redis)]
+        L1 <--> R1
+    end
+
+    subgraph WEB2 [Web02]
+        L2[FastAPI]
+        R2[(Redis)]
+        L2 <--> R2
+    end
+
+    Client --> K
+    K -->|X-Served-By: Web01| L1
+    K -->|X-Served-By: Web02| L2
 ```
 
 ### Step-by-step flow
 
 | Step | What happens |
 |------|-------------|
-| **1. Data ingestion** | `eia_loader.py` fetches ERCO demand from EIA API and saves to `data/gatsibo_load.csv`. `weather.py` pulls hourly conditions from Open-Meteo (cached in Redis, 1 h TTL). |
+| **1. Data ingestion** | `eia_loader.py` fetches ERCO demand from the EIA API. `weather.py` pulls hourly conditions from Open-Meteo (cached in Redis, 1 h TTL). |
 | **2. Model training** | `POST /api/train` triggers `ProphetForecaster.train()` or `LSTMForecaster.train()` inside an `asyncio.to_thread` worker — never blocks the event loop. |
 | **3. Forecast request** | `GET /api/forecast?model=prophet&hours=24` checks the in-memory cache (5-min TTL). On a cache miss, runs `fc.predict()` in a thread pool and stores the result. |
-| **4. Threshold check** | After every forecast, `check_and_dispatch()` in `webhook.py` scans the predictions. If any hour ≥ `LOAD_THRESHOLD_MW`, it fires a webhook as a **fire-and-forget** `asyncio.create_task`. |
-| **5. Webhook dispatch** | `_build_payload()` assembles the ERCOT zone shed schedule and `httpx.post()` sends it to `/webhook/controller`. Secret is validated before the payload is accepted. |
-| **6. Alerts** | `dispatch_alert()` in `alerts.py` concurrently sends SMS via Africa's Talking and HTML email via Resend. Both channels fail gracefully if credentials are missing. |
+| **4. Threshold check** | After every forecast, `check_and_dispatch()` in `webhook.py` scans the predictions. If any hour ≥ `LOAD_THRESHOLD_MW`, it fires a webhook as a fire-and-forget `asyncio.create_task`. |
+| **5. Webhook dispatch** | `_build_payload()` assembles the ERCOT zone shed schedule and `httpx.post()` sends it to `/webhook/controller`. The secret is validated before the payload is accepted. |
+| **6. Alerts** | `dispatch_alert()` in `alerts.py` sends SMS via Africa's Talking and HTML email via Resend. Both channels fail gracefully if credentials are missing. |
 | **7. Dashboard** | The frontend polls `/api/forecast` every 60 s and `/api/alerts` every 30 s. Chart.js renders the load curve; alert rows highlight hours above threshold. |
 | **8. Scheduler** | `APScheduler` runs the full forecast → check → dispatch pipeline **hourly** in the background, independent of user requests. |
 | **9. Load balancer** | Nginx (Lb01) round-robins incoming HTTP requests between Web01 and Web02. The `X-Served-By` response header shows which backend handled each request. |
