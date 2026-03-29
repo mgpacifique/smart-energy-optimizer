@@ -12,7 +12,7 @@ WEB02_USER="ubuntu"
 WEB02_HOST="184.72.182.76"
 BACKEND_PATH="/path/to/smart-energy-optimizer/backend"
 
-LOCAL_EVAL_FILE="/home/ovouz/smart-energy-optimizer/backend/data/eval_results.csv"
+LOCAL_EVAL_FILE="backend\data\eval_results.csv"
 REMOTE_EVAL_DIR="data"
 
 echo "================================================"

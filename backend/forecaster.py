@@ -1,11 +1,11 @@
 """
 forecaster.py
-Prophet-based hourly energy load forecasting for Gatsibo District.
+Prophet-based hourly energy load forecasting for the Texas ERCOT grid.
 
 Prophet handles:
   - Daily seasonality  (morning / evening peaks)
   - Weekly seasonality (weekday vs weekend)
-  - Yearly seasonality (Rwanda dry / rainy seasons)
+  - Yearly seasonality (Texas summer/winter demand cycles)
     - Trend changepoints with tuned flexibility for grid load shifts
 
 Usage:

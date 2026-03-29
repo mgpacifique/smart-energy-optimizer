@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gatsibo Smart Energy Optimizer</title>
+  <title>Texas ERCOT Smart Energy Optimizer</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
@@ -15,7 +16,7 @@
       <div class="logo">
         <span class="logo-icon">&#9889;</span>
         <div>
-          <span class="logo-title">Gatsibo Energy</span>
+          <span class="logo-title">Texas ERCOT Energy</span>
           <span class="logo-sub">Smart Load Optimizer</span>
         </div>
       </div>
@@ -23,7 +24,7 @@
     <div class="topbar-right">
       <div id="weather-widget" class="weather-chip">
         <span id="weather-temp">--°C</span>
-        <span id="weather-label">Gatsibo</span>
+        <span id="weather-label">Dallas, TX</span>
       </div>
       <span id="last-updated" class="muted-text">Updating…</span>
     </div>
@@ -103,7 +104,7 @@
   <section class="card chart-card">
     <div class="card-header">
       <h2 class="card-title">Hourly load forecast</h2>
-      <span class="card-subtitle" id="chart-subtitle">Gatsibo District · MW</span>
+      <span class="card-subtitle" id="chart-subtitle">Texas ERCOT · MW</span>
     </div>
     <div class="chart-wrap">
       <canvas id="forecast-chart"></canvas>

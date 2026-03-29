@@ -1,7 +1,7 @@
 """
 main.py
 FastAPI application — Smart Energy Consumption Optimizer
-Gatsibo District, Rwanda
+Texas ERCOT Grid, United States
 
 Endpoints:
   GET  /                          → health check
@@ -13,10 +13,10 @@ Endpoints:
   GET  /api/weather               → current weather conditions
 """
 
+import asyncio
 import logging
 import os
-import subprocess
-import sys
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -40,6 +40,10 @@ logger = logging.getLogger(__name__)
 # In-memory alert log (replace with DB in production)
 alert_log: list[dict] = []
 
+# ── In-memory forecast cache (key: "model:hours", value: {data, ts}) ──────────
+_forecast_cache: dict = {}
+FORECAST_CACHE_TTL = 300  # seconds (5 minutes)
+
 
 # ── App lifecycle ─────────────────────────────────────────────────────────────
 
@@ -53,8 +57,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Gatsibo Smart Energy Optimizer",
-    description="Predicts peak electricity load and triggers load-shedding schedules for Gatsibo District, Rwanda.",
+    title="Texas ERCOT Smart Energy Optimizer",
+    description="Predicts peak electricity load and triggers load-shedding schedules for the Texas ERCOT grid, United States.",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -139,25 +143,36 @@ def technical_redirect_path(path: str):
 def health():
     return {
         "status":  "ok",
-        "service": "Gatsibo Smart Energy Optimizer",
+        "service": "Texas ERCOT Smart Energy Optimizer",
         "time":    datetime.utcnow().isoformat(),
         "dashboards": {
-            "simple": "http://localhost:8000/app (for teachers)",
+            "simple": "http://localhost:8000/app",
             "advanced": "http://localhost:8000/advanced (technical view)",
         },
     }
 
 
 @app.get("/api/forecast", tags=["Forecast"])
-def get_forecast(
+async def get_forecast(
     hours: int = Query(default=24, ge=1, le=168, description="Hours ahead to forecast"),
     model: Literal["prophet", "lstm"] = Query(default="prophet"),
 ):
     """
     Return an hourly load forecast.
     Each item contains: timestamp, predicted_mw, lower_mw, upper_mw, alert.
+    Responses are cached for 5 minutes per (model, hours) combination.
     """
-    try:
+    cache_key = f"{model}:{hours}"
+    now = time.monotonic()
+
+    # ── Serve from cache if still fresh ───────────────────────────────────────
+    cached = _forecast_cache.get(cache_key)
+    if cached and (now - cached["ts"]) < FORECAST_CACHE_TTL:
+        logger.info("[api] Forecast cache HIT for %s", cache_key)
+        return cached["data"]
+
+    # ── Run prediction in a thread so we don't block the event loop ───────────
+    def _run_prediction():
         if model == "prophet":
             from forecaster import ProphetForecaster
             fc = ProphetForecaster()
@@ -166,16 +181,33 @@ def get_forecast(
             fc = LSTMForecaster()
 
         if fc.model is None:
+            # Raise a plain exception — HTTPException cannot propagate from a thread
+            raise RuntimeError(
+                f"Model '{model}' has not been trained yet. POST /api/train first."
+            )
+        return fc.predict(hours=hours)
+
+    try:
+        predictions = await asyncio.to_thread(_run_prediction)
+    except ModuleNotFoundError as exc:
+        if exc.name == "tensorflow":
+            logger.warning("[api] LSTM requested but TensorFlow is not installed.")
             raise HTTPException(
                 status_code=503,
-                detail=f"Model '{model}' has not been trained yet. POST /api/train first.",
+                detail="LSTM forecasting requires TensorFlow. Install backend dependencies or use model=prophet.",
             )
+        raise
+    except RuntimeError as exc:
+        # Raised by _run_prediction when the model isn't trained yet
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        logger.error("[api] Forecast error: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
 
-        predictions = fc.predict(hours=hours)
-
-        # Run webhook check (non-blocking — errors are logged, not raised)
+    # ── Webhook check — fire-and-forget, never blocks the response ─────────────
+    async def _dispatch():
         try:
-            result = check_and_dispatch(predictions)
+            result = await asyncio.to_thread(check_and_dispatch, predictions)
             if result:
                 alert_log.append({
                     "timestamp": datetime.utcnow().isoformat(),
@@ -186,26 +218,31 @@ def get_forecast(
         except Exception as wh_exc:
             logger.error("[api] Webhook check error: %s", wh_exc)
 
-        return {
-            "district":     "Gatsibo, Eastern Province, Rwanda",
-            "model":        model,
-            "hours":        hours,
-            "threshold_mw": float(os.getenv("LOAD_THRESHOLD_MW", "20.0")),
-            "generated_at": datetime.utcnow().isoformat(),
-            "forecast":     predictions,
-        }
+    asyncio.create_task(_dispatch())
 
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error("[api] Forecast error: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+    payload = {
+        "district":     "Texas ERCOT, United States",
+        "model":        model,
+        "hours":        hours,
+        "threshold_mw": float(os.getenv("LOAD_THRESHOLD_MW", "20.0")),
+        "generated_at": datetime.utcnow().isoformat(),
+        "forecast":     predictions,
+    }
+
+    # ── Store in cache ─────────────────────────────────────────────────────────
+    _forecast_cache[cache_key] = {"data": payload, "ts": now}
+    logger.info("[api] Forecast cache MISS — computed and cached for %s", cache_key)
+
+    return payload
 
 
 @app.post("/api/train", tags=["Model"])
-def train_model(req: TrainRequest):
-    """Trigger model retraining. Runs synchronously (expect 30–120s for LSTM)."""
-    try:
+async def train_model(req: TrainRequest):
+    """
+    Trigger model retraining in a background thread so the event loop is not blocked.
+    Training can take 30–120 s for LSTM.
+    """
+    def _do_train():
         from eia_loader import generate
         generate()   # refresh / re-fetch EIA data
 
@@ -218,8 +255,9 @@ def train_model(req: TrainRequest):
             fc = LSTMForecaster()
             fc.train()
 
+    try:
+        await asyncio.to_thread(_do_train)
         return {"status": "trained", "model": req.model, "at": datetime.utcnow().isoformat()}
-
     except Exception as exc:
         logger.error("[api] Training error: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))
@@ -230,6 +268,7 @@ def model_evaluation_summary():
     """
     Return saved model-evaluation metrics with a recommendation and plain-language explanation.
     Data source: backend/data/eval_results.csv (generated by evaluate.py)
+    Texas ERCOT load data — sourced from US EIA ERCO series.
     """
     import pandas as pd
 
@@ -311,114 +350,87 @@ def model_evaluation_summary():
     }
 
 
+# Global flag to avoid running two evaluations simultaneously
+_eval_running: bool = False
+
+
 @app.post("/api/evaluation/run", tags=["Model"])
-def run_model_evaluation():
+async def run_model_evaluation():
     """
-    Execute evaluate.py in background using tmux and return status.
+    Execute evaluate.py in a background asyncio task.
     Does not block — returns immediately.
-    Check status with GET /api/evaluation/status
+    Check progress with GET /api/evaluation/status
     """
-    backend_dir = Path(__file__).parent
-    session_name = "eval-momo"
-    
-    # Check if tmux session already running
-    check_cmd = f"tmux has-session -t {session_name} 2>/dev/null && echo 'running' || echo 'stopped'"
-    result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True)
-    session_exists = "running" in result.stdout
-    
-    if not session_exists:
-        # Create new tmux session in detached mode and run evaluation
-        create_cmd = (
-            f"tmux new-session -d -s {session_name} -c '{backend_dir}' "
-            f"'{sys.executable} evaluate.py 2>&1 | tee /tmp/eval-momo.log'"
-        )
-        try:
-            subprocess.run(create_cmd, shell=True, check=True, timeout=5)
-            return {
-                "status": "started",
-                "message": "Evaluation started in background (tmux session 'eval-momo')",
-                "session": session_name,
-                "log_file": "/tmp/eval-momo.log",
-            }
-        except Exception as exc:
-            raise HTTPException(
-                status_code=500, 
-                detail=f"Failed to start background evaluation: {exc}"
-            )
-    else:
+    global _eval_running
+
+    if _eval_running:
         return {
             "status": "already_running",
-            "message": "An evaluation is already running in tmux session 'eval-momo'",
-            "session": session_name,
-            "log_file": "/tmp/eval-momo.log",
+            "message": "An evaluation is already in progress.",
         }
+
+    async def _bg_eval():
+        global _eval_running
+        _eval_running = True
+        try:
+            def _run():
+                import runpy
+                backend_dir = Path(__file__).parent
+                # evaluate.py writes backend/data/eval_results.csv
+                runpy.run_path(str(backend_dir / "evaluate.py"), run_name="__main__")
+
+            await asyncio.to_thread(_run)
+            logger.info("[eval] Background evaluation completed.")
+        except Exception as exc:
+            logger.error("[eval] Background evaluation failed: %s", exc, exc_info=True)
+        finally:
+            _eval_running = False
+
+    asyncio.create_task(_bg_eval())
+    return {
+        "status": "started",
+        "message": "Evaluation started in the background. Poll GET /api/evaluation/status for results.",
+    }
 
 
 @app.get("/api/evaluation/status", tags=["Model"])
 def get_evaluation_status():
     """
-    Check status of background evaluation session.
-    Returns: running, completed, or failed
+    Check whether the background evaluation is running and whether results are available.
     """
-    session_name = "eval-momo"
-    
-    # Check if tmux session exists
-    check_cmd = f"tmux has-session -t {session_name} 2>/dev/null && echo 'running' || echo 'stopped'"
-    result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True)
-    is_running = "running" in result.stdout
-    
-    # Check if eval_results.csv was updated recently (within last 5 min)
     eval_path = Path(__file__).parent / "data" / "eval_results.csv"
-    
-    status_info = {
-        "session_exists": is_running,
+
+    status_info: dict = {
+        "is_running":       _eval_running,
         "eval_file_exists": eval_path.exists(),
     }
-    
+
     if eval_path.exists():
-        import time
         mtime = eval_path.stat().st_mtime
         age_seconds = time.time() - mtime
-        status_info["eval_file_age_seconds"] = age_seconds
-        status_info["just_completed"] = age_seconds < 300  # Updated in last 5 min
-    
-    # Try to read log file
-    log_path = Path("/tmp/eval-momo.log")
-    if log_path.exists():
-        try:
-            with open(log_path, 'r') as f:
-                log_lines = f.readlines()
-                status_info["log_tail"] = "".join(log_lines[-10:])
-        except:
-            pass
-    
-    if is_running:
-        return {
-            "status": "running",
-            "message": "Evaluation is in progress",
-            **status_info,
-        }
-    elif status_info.get("just_completed"):
+        status_info["eval_file_age_seconds"] = round(age_seconds, 1)
+        status_info["just_completed"] = age_seconds < 300
+
+    if _eval_running:
+        return {"status": "running", "message": "Evaluation is in progress.", **status_info}
+
+    if status_info.get("just_completed"):
         try:
             summary = model_evaluation_summary()
             return {
                 "status": "completed",
-                "message": "Evaluation just completed",
+                "message": "Evaluation just completed.",
                 "summary": summary,
                 **status_info,
             }
-        except:
+        except Exception:
             return {
                 "status": "completed_with_errors",
-                "message": "Evaluation completed but could not read results",
+                "message": "Evaluation completed but results could not be read.",
                 **status_info,
             }
-    else:
-        return {
-            "status": "idle",
-            "message": "No evaluation currently running",
-            **status_info,
-        }
+
+    return {"status": "idle", "message": "No evaluation currently running.", **status_info}
 
 
 @app.post("/api/eia/sync", tags=["Data"])
@@ -502,14 +514,15 @@ def get_alerts(limit: int = Query(default=20, ge=1, le=100)):
 
 @app.get("/api/weather", tags=["Weather"])
 def get_weather():
-    """Return current weather conditions for Gatsibo from Open-Meteo."""
+    """Return current weather conditions for Dallas, TX from Open-Meteo."""
     try:
         from weather import fetch_forecast, weather_to_dataframe
+        # Short timeout — weather must never hang the dashboard
         raw = fetch_forecast(days_ahead=1)
         df  = weather_to_dataframe(raw).reset_index()
         now = df.iloc[0]
         return {
-            "location":    "Gatsibo, Rwanda",
+            "location":    "Dallas, TX — ERCOT Grid",
             "timestamp":   str(now["ds"]),
             "temperature": round(float(now.get("temperature_2m", 0)), 1),
             "humidity":    round(float(now.get("relative_humidity_2m", 0)), 1),
@@ -518,4 +531,14 @@ def get_weather():
             "source":      "Open-Meteo (open-meteo.com)",
         }
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Weather service unavailable: {exc}")
+        logger.warning("[api] Weather fetch failed (non-fatal): %s", exc)
+        return {
+            "location":    "Dallas, TX — ERCOT Grid",
+            "timestamp":   datetime.utcnow().isoformat(),
+            "temperature": None,
+            "humidity":    None,
+            "wind_speed":  None,
+            "solar_rad":   None,
+            "source":      "Open-Meteo (unavailable)",
+            "error":       str(exc),
+        }

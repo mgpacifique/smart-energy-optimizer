@@ -1,10 +1,10 @@
 /**
  * app.js
- * Dashboard logic for Gatsibo Smart Energy Optimizer
+ * Dashboard logic for Texas ERCOT Smart Energy Optimizer
  * Fetches forecast + alert data from the FastAPI backend and renders them.
  */
 
-const API_BASE = "http://54.165.62.144";
+const API_BASE = window.location.origin;
 
 let forecastData  = [];   // raw forecast array from API
 let sortKey       = "timestamp";
@@ -231,7 +231,7 @@ function renderChart(forecast, threshold) {
   });
 
   document.getElementById("chart-subtitle").textContent =
-    `Gatsibo District · ${forecast.length} hours · MW`;
+    `Texas ERCOT · ${forecast.length} hours · MW`;
 }
 
 // ── Table ─────────────────────────────────────────────────────────────────────
@@ -298,11 +298,11 @@ function buildShedSchedule(alertHours, threshold) {
       const peak = data.forecast.reduce((a, b) => a.predicted_mw > b.predicted_mw ? a : b);
       // Build schedule locally (mirrors server logic)
       const zones = [
-        "Zone A – Gatsibo Town Centre",
-        "Zone B – Rugarama Sector",
-        "Zone C – Kiramuruzi Sector",
-        "Zone D – Gitoki Sector",
-        "Zone E – Mukarange Sector",
+        "Houston Zone (ERCOT-H)",
+        "North Zone (ERCOT-N)",
+        "West Zone (ERCOT-W)",
+        "South Zone (ERCOT-S)",
+        "Far West Zone (ERCOT-FW)",
       ];
       const excess       = Math.max(0, peak.predicted_mw - threshold);
       const loadPerZone  = peak.predicted_mw / zones.length;
@@ -369,7 +369,7 @@ async function loadWeather() {
     const res  = await fetch(`${API_BASE}/api/weather`);
     const data = await res.json();
     document.getElementById("weather-temp").textContent  = `${data.temperature}°C`;
-    document.getElementById("weather-label").textContent = "Gatsibo";
+    document.getElementById("weather-label").textContent = "Dallas, TX";
   } catch (_) {}
 }
 

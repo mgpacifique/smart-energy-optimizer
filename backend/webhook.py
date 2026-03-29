@@ -3,16 +3,16 @@ webhook.py
 Threshold checker and webhook dispatcher.
 
 When a forecast exceeds LOAD_THRESHOLD_MW:
-  1. Generate a zone-based load-shedding schedule for Gatsibo
+  1. Generate a zone-based load-shedding schedule for the Texas ERCOT grid
   2. POST the payload to the mock smart-grid controller endpoint
   3. Fire alert notifications (SMS + email) via alerts.py
 
-Gatsby zones (illustrative — based on Gatsibo sector layout):
-  Zone A: Gatsibo Town Centre
-  Zone B: Rugarama Sector
-  Zone C: Kiramuruzi Sector
-  Zone D: Gitoki Sector
-  Zone E: Mukarange Sector
+Texas ERCOT zones (official ERCOT grid load zones):
+  Zone Houston: ERCOT-H
+  Zone North:   ERCOT-N
+  Zone West:    ERCOT-W
+  Zone South:   ERCOT-S
+  Zone Far West: ERCOT-FW
 """
 
 import json
@@ -31,13 +31,13 @@ LOAD_THRESHOLD_MW    = float(os.getenv("LOAD_THRESHOLD_MW", "20.0"))
 CONTROLLER_URL       = os.getenv("CONTROLLER_WEBHOOK_URL", "http://localhost:8000/webhook/controller")
 WEBHOOK_SECRET       = os.getenv("WEBHOOK_SECRET", "dev-secret-change-me")
 
-# Gatsibo district zones for rotation-based load shedding
+# Texas ERCOT zones for rotation-based load shedding
 ZONES = [
-    {"zone": "Zone A – Gatsibo Town Centre",  "priority": 1},
-    {"zone": "Zone B – Rugarama Sector",      "priority": 2},
-    {"zone": "Zone C – Kiramuruzi Sector",    "priority": 3},
-    {"zone": "Zone D – Gitoki Sector",        "priority": 4},
-    {"zone": "Zone E – Mukarange Sector",     "priority": 5},
+    {"zone": "Houston Zone (ERCOT-H)",  "priority": 1},
+    {"zone": "North Zone (ERCOT-N)",    "priority": 2},
+    {"zone": "West Zone (ERCOT-W)",     "priority": 3},
+    {"zone": "South Zone (ERCOT-S)",    "priority": 4},
+    {"zone": "Far West Zone (ERCOT-FW)","priority": 5},
 ]
 
 
@@ -100,7 +100,7 @@ def _build_payload(
     return {
         "event":         "peak_load_alert",
         "triggered_at":  triggered_at or datetime.utcnow().isoformat(),
-        "district":      "Gatsibo, Eastern Province, Rwanda",
+        "district":      "Texas ERCOT, United States",
         "threshold_mw":  LOAD_THRESHOLD_MW,
         "peak": {
             "timestamp":    peak["timestamp"],

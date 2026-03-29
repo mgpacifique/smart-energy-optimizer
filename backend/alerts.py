@@ -53,7 +53,7 @@ def send_sms_alert(predicted_mw: float, timestamp: str, schedule: list[dict]) ->
         zones_text += f" +{len(schedule)-3} more"
 
     body = (
-        f"[GATSIBO ENERGY ALERT]\n"
+        f"[TEXAS ERCOT ENERGY ALERT]\n"
         f"Predicted peak: {predicted_mw:.1f} MW at {timestamp[:16]}\n"
         f"Load shedding: {zones_text}\n"
         f"Reduce usage where possible."
@@ -112,7 +112,7 @@ def send_email_alert(predicted_mw: float, timestamp: str, schedule: list[dict]) 
     html = f"""
     <div style="font-family:sans-serif;max-width:600px;margin:auto">
       <div style="background:#DC2626;color:#fff;padding:16px 24px;border-radius:8px 8px 0 0">
-        <h2 style="margin:0">&#9889; Gatsibo Grid — Peak Load Alert</h2>
+        <h2 style="margin:0">&#9889; Texas ERCOT Grid — Peak Load Alert</h2>
       </div>
       <div style="background:#fff;padding:24px;border:1px solid #e5e7eb;border-top:none">
         <p style="font-size:18px;margin:0 0 8px">
@@ -134,7 +134,7 @@ def send_email_alert(predicted_mw: float, timestamp: str, schedule: list[dict]) 
         </table>
 
         <p style="margin:20px 0 0;font-size:13px;color:#9ca3af">
-          This alert was generated automatically by the Gatsibo Smart Energy Optimizer.
+          This alert was generated automatically by the Texas ERCOT Smart Energy Optimizer.
           Threshold: 20 MW. Model: Prophet + LSTM ensemble.
         </p>
       </div>
@@ -148,7 +148,7 @@ def send_email_alert(predicted_mw: float, timestamp: str, schedule: list[dict]) 
         params = resend.Emails.SendParams(
             from_=from_addr,
             to=to_addrs,
-            subject=f"[ALERT] Gatsibo grid peak {predicted_mw:.1f} MW forecast — {timestamp[:10]}",
+            subject=f"[ALERT] Texas ERCOT grid peak {predicted_mw:.1f} MW forecast — {timestamp[:10]}",
             html=html,
         )
         resp = resend.Emails.send(params)

@@ -1,16 +1,17 @@
 """
 weather.py
-Fetches hourly weather data for Gatsibo District from the Open-Meteo API.
+Fetches hourly weather data for Dallas, TX (ERCOT grid hub) from the Open-Meteo API.
 Results are cached in Redis (TTL: 1 hour) to avoid redundant API calls.
 
 Open-Meteo docs : https://open-meteo.com/en/docs
 No API key required.
 
-Gatsibo coordinates: lat=-1.5773, lon=30.4249
+Dallas, TX coordinates: lat=32.7767, lon=-96.7970
 """
 
 import json
 import logging
+import os
 from datetime import date, timedelta
 from typing import Optional
 
@@ -19,10 +20,10 @@ import redis
 
 logger = logging.getLogger(__name__)
 
-# ── Gatsibo District, Rwanda ──────────────────────────────────────────────────
-LATITUDE  =  -1.5773
-LONGITUDE =  30.4249
-TIMEZONE  = "Africa/Kigali"
+# ── Dallas, TX — Texas ERCOT Grid, United States ─────────────────────────────
+LATITUDE  =  32.7767
+LONGITUDE = -96.7970
+TIMEZONE  = "America/Chicago"
 
 # ── Open-Meteo endpoints ──────────────────────────────────────────────────────
 FORECAST_URL  = "https://api.open-meteo.com/v1/forecast"
@@ -38,7 +39,7 @@ HOURLY_VARS = [
 ]
 
 # ── Redis config (falls back gracefully if Redis is unavailable) ──────────────
-REDIS_URL        = "redis://localhost:6379/0"
+REDIS_URL        = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 CACHE_TTL_SECS   = 3600   # 1 hour
 
 
@@ -86,7 +87,7 @@ def fetch_forecast(days_ahead: int = 7) -> dict:
 
     logger.info("[weather] Fetching forecast from Open-Meteo (%s → %s)", start, end)
     try:
-        response = httpx.get(FORECAST_URL, params=params, timeout=15)
+        response = httpx.get(FORECAST_URL, params=params, timeout=8)
         response.raise_for_status()
         data = response.json()
     except httpx.HTTPError as exc:

@@ -11,7 +11,7 @@ set -e
 
 echo ""
 echo "======================================================"
-echo "  Gatsibo Smart Energy Optimizer — First-run Setup"
+echo "  Texas ERCOT Smart Energy Optimizer — First-run Setup"
 echo "======================================================"
 echo ""
 

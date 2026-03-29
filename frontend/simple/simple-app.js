@@ -1,11 +1,13 @@
 /**
  * simple-app.js
- * Teacher-friendly dashboard for Gatsibo Smart Energy Optimizer
+ * Teacher-friendly dashboard for Texas ERCOT Smart Energy Optimizer
  * Shows only the most important information in easy-to-understand format
  */
 
 const API_BASE = window.location.origin;
 let simpleChart = null;
+let activeModel = "prophet";
+let fallbackNotified = false;
 
 // Load on start
 window.addEventListener("DOMContentLoaded", () => {
@@ -17,9 +19,30 @@ window.addEventListener("DOMContentLoaded", () => {
 // Main data load
 async function loadData() {
   try {
-    const res = await fetch(`${API_BASE}/api/forecast?model=lstm&hours=24`);
-    if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
+    let data;
+
+    try {
+      data = await fetchForecast(activeModel, 24);
+    } catch (err) {
+      const message = String(err.message || "");
+      const canFallback =
+        activeModel === "lstm" &&
+        (
+          message.includes("tensorflow") ||
+          message.includes("not been trained") ||
+          err.status >= 500
+        );
+
+      if (!canFallback) throw err;
+
+      activeModel = "prophet";
+      data = await fetchForecast(activeModel, 24);
+
+      if (!fallbackNotified) {
+        showToast("LSTM unavailable. Switched to Prophet forecast.", "warning");
+        fallbackNotified = true;
+      }
+    }
 
     updateDashboard(data.forecast, data.threshold_mw);
     renderSimpleChart(data.forecast, data.threshold_mw);
@@ -29,6 +52,17 @@ async function loadData() {
     showToast("Error loading data: " + err.message, "error");
     console.error(err);
   }
+}
+
+async function fetchForecast(model, hours) {
+  const res = await fetch(`${API_BASE}/api/forecast?model=${model}&hours=${hours}`);
+  if (!res.ok) {
+    const detail = await res.text();
+    const err = new Error(detail);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
 }
 
 // Update main metrics
@@ -67,6 +101,9 @@ function updateDashboard(forecast, threshold) {
     statusText.textContent = "All forecast values are within normal range";
     document.getElementById("alert-card").style.display = "none";
   }
+
+  // Populate the hourly details table using already-fetched data
+  populateTable(forecast, threshold);
 }
 
 // Simple chart
@@ -221,18 +258,8 @@ function populateTable(forecast, threshold) {
   tbody.innerHTML = rows || `<tr><td colspan="3">No data</td></tr>`;
 }
 
-// Hook into loadData to also populate table
-const origLoadData = loadData;
-loadData = async function() {
-  await origLoadData();
-  try {
-    const res = await fetch(`${API_BASE}/api/forecast?model=lstm&hours=24`);
-    if (res.ok) {
-      const data = await res.json();
-      populateTable(data.forecast, data.threshold_mw);
-    }
-  } catch (_) {}
-};
+// Hook into loadData to also populate table — removed (populateTable is now
+// called directly from updateDashboard to avoid a redundant API request).
 
 // Toast notification
 function showToast(msg, type = "info") {
