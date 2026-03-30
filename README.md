@@ -218,7 +218,16 @@ curl -X POST http://localhost:8000/api/train \
 | POST | `/api/evaluation/run` | Trigger background evaluation |
 | GET | `/api/evaluation/status` | Poll background evaluation progress |
 
-Interactive API docs: `http://localhost:8000/docs`
+### Interactive API Documentation
+
+| Docs Type | Live URL | Local URL |
+|-----------|----------|-----------|
+| **Swagger UI** (interactive) | [https://www.booklogger.tech/docs](https://www.booklogger.tech/docs) | http://localhost:8000/docs |
+| **ReDoc** (clean reader) | [https://www.booklogger.tech/redoc](https://www.booklogger.tech/redoc) | http://localhost:8000/redoc |
+| **OpenAPI JSON schema** | [https://www.booklogger.tech/openapi.json](https://www.booklogger.tech/openapi.json) | http://localhost:8000/openapi.json |
+
+> [!TIP]
+> Use the **Swagger UI** (`/docs`) to send live requests directly from your browser — every endpoint has a **"Try it out"** button with full request/response schema documentation.
 
 ---
 
