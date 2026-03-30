@@ -103,10 +103,48 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d --build --no-deps api
             echo "Web02 deployed OK"
 
-  # ── Job 5: Verify ─────────────────────────────────────────────────────────
+  # ── Job 5: Deploy Lb01 Nginx config ──────────────────────────────────────
+  deploy-lb:
+    runs-on: ubuntu-latest
+    needs: validate-secrets
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy Nginx config to Lb01
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.LB01_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key:      ${{ secrets.SSH_PRIVATE_KEY }}
+          port:     22
+          timeout:  60s
+          script: |
+            set -e
+            cd ~/smart-energy-optimizer
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Install the updated Nginx config (replace placeholder IPs)
+            sudo cp nginx/lb01.conf /etc/nginx/sites-available/energy-optimizer
+            sudo sed -i "s/WEB01_IP/$WEB01_IP/g"  /etc/nginx/sites-available/energy-optimizer
+            sudo sed -i "s/WEB02_IP/$WEB02_IP/g"  /etc/nginx/sites-available/energy-optimizer
+            sudo sed -i "s/LB01_IP/$LB01_IP/g"    /etc/nginx/sites-available/energy-optimizer
+
+            # Ensure the symlink exists
+            sudo ln -sf /etc/nginx/sites-available/energy-optimizer \
+                        /etc/nginx/sites-enabled/energy-optimizer
+
+            sudo nginx -t && sudo systemctl reload nginx
+            echo "Lb01 Nginx reloaded OK"
+        env:
+          WEB01_IP: ${{ secrets.WEB01_HOST }}
+          WEB02_IP: ${{ secrets.WEB02_HOST }}
+          LB01_IP:  ${{ secrets.LB01_HOST }}
+
+  # ── Job 6: Verify ─────────────────────────────────────────────────────────
   verify-lb:
     runs-on: ubuntu-latest
-    needs: [deploy-web01, deploy-web02]
+    needs: [deploy-web01, deploy-web02, deploy-lb]
     steps:
       - name: Wait for services
         run: sleep 30
