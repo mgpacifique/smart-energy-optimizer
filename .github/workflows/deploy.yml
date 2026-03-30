@@ -65,11 +65,11 @@ jobs:
       - name: Deploy to Web01
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host:     ${{ secrets.WEB01_HOST }}
+          host: ${{ secrets.WEB01_HOST }}
           username: ${{ secrets.SSH_USER }}
-          key:      ${{ secrets.SSH_PRIVATE_KEY }}
-          port:     22
-          timeout:  120s
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          timeout: 120s
           script: |
             set -e
             cd ~/smart-energy-optimizer
@@ -89,11 +89,11 @@ jobs:
       - name: Deploy to Web02
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host:     ${{ secrets.WEB02_HOST }}
+          host: ${{ secrets.WEB02_HOST }}
           username: ${{ secrets.SSH_USER }}
-          key:      ${{ secrets.SSH_PRIVATE_KEY }}
-          port:     22
-          timeout:  120s
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          timeout: 120s
           script: |
             set -e
             cd ~/smart-energy-optimizer
@@ -103,7 +103,7 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d --build --no-deps api
             echo "Web02 deployed OK"
 
-  # ── Job 5: Deploy Lb01 Nginx config ──────────────────────────────────────
+  # ── Job 5: Deploy Lb01 Nginx config ──────────────────────────────────────────
   deploy-lb:
     runs-on: ubuntu-latest
     needs: validate-secrets
@@ -113,24 +113,25 @@ jobs:
       - name: Deploy Nginx config to Lb01
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host:     ${{ secrets.LB01_HOST }}
+          host: ${{ secrets.LB01_HOST }}
           username: ${{ secrets.SSH_USER }}
-          key:      ${{ secrets.SSH_PRIVATE_KEY }}
-          port:     22
-          timeout:  60s
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          timeout: 60s
           script: |
             set -e
             cd ~/smart-energy-optimizer
             git fetch origin main
             git reset --hard origin/main
 
-            # Install the updated Nginx config (replace placeholder IPs)
-            sudo cp nginx/lb01.conf /etc/nginx/sites-available/energy-optimizer
-            sudo sed -i "s/WEB01_IP/$WEB01_IP/g"  /etc/nginx/sites-available/energy-optimizer
-            sudo sed -i "s/WEB02_IP/$WEB02_IP/g"  /etc/nginx/sites-available/energy-optimizer
-            sudo sed -i "s/LB01_IP/$LB01_IP/g"    /etc/nginx/sites-available/energy-optimizer
+            # Substitute real IPs into the template
+            cp nginx/lb01.conf /tmp/energy-optimizer.conf
+            sed -i "s/WEB01_IP/${WEB01_IP}/g" /tmp/energy-optimizer.conf
+            sed -i "s/WEB02_IP/${WEB02_IP}/g" /tmp/energy-optimizer.conf
+            sed -i "s/LB01_IP/${LB01_IP}/g"   /tmp/energy-optimizer.conf
+            sudo cp /tmp/energy-optimizer.conf /etc/nginx/sites-available/energy-optimizer
 
-            # Ensure the symlink exists
+            # Ensure symlink exists
             sudo ln -sf /etc/nginx/sites-available/energy-optimizer \
                         /etc/nginx/sites-enabled/energy-optimizer
 
@@ -141,7 +142,7 @@ jobs:
           WEB02_IP: ${{ secrets.WEB02_HOST }}
           LB01_IP:  ${{ secrets.LB01_HOST }}
 
-  # ── Job 6: Verify ─────────────────────────────────────────────────────────
+  # ── Job 6: Verify ───────────────────────────────────────────────────
   verify-lb:
     runs-on: ubuntu-latest
     needs: [deploy-web01, deploy-web02, deploy-lb]

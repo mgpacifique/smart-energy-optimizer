@@ -218,16 +218,7 @@ curl -X POST http://localhost:8000/api/train \
 | POST | `/api/evaluation/run` | Trigger background evaluation |
 | GET | `/api/evaluation/status` | Poll background evaluation progress |
 
-### Interactive API Documentation
-
-| Docs Type | Live URL | Local URL |
-|-----------|----------|-----------|
-| **Swagger UI** (interactive) | [https://www.booklogger.tech/docs](https://www.booklogger.tech/docs) | http://localhost:8000/docs |
-| **ReDoc** (clean reader) | [https://www.booklogger.tech/redoc](https://www.booklogger.tech/redoc) | http://localhost:8000/redoc |
-| **OpenAPI JSON schema** | [https://www.booklogger.tech/openapi.json](https://www.booklogger.tech/openapi.json) | http://localhost:8000/openapi.json |
-
-> [!TIP]
-> Use the **Swagger UI** (`/docs`) to send live requests directly from your browser — every endpoint has a **"Try it out"** button with full request/response schema documentation.
+Interactive API docs: `http://localhost:8000/docs`
 
 ---
 
@@ -287,7 +278,7 @@ The Nginx config adds an `X-Served-By` header to every API response that shows w
 > Replace `LB01_IP` with your load balancer's actual IP address or domain.
 
 ```bash
-LB01_IP="54.165.62.144"
+LB01_IP="YOUR_LB01_IP_HERE"
 
 echo "Sending 6 requests to the load balancer..."
 echo "-------------------------------------------"
