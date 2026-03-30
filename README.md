@@ -287,7 +287,7 @@ The Nginx config adds an `X-Served-By` header to every API response that shows w
 > Replace `LB01_IP` with your load balancer's actual IP address or domain.
 
 ```bash
-LB01_IP="YOUR_LB01_IP_HERE"
+LB01_IP="54.165.62.144"
 
 echo "Sending 6 requests to the load balancer..."
 echo "-------------------------------------------"
