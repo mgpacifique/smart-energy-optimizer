@@ -21,6 +21,14 @@ The application is deployed on two AWS EC2 instances behind an Nginx load balanc
 
 ---
 
+## 🎬 Tutorial Video
+
+Watch the full walkthrough of the Smart Energy Optimizer — features, architecture, and live demo:
+
+▶️ **[Watch on Vimeo](https://vimeo.com/1178780889?share=copy&fl=sv&fe=ci)**
+
+---
+
 ## What I Accomplished
 
 | Milestone | Details |
